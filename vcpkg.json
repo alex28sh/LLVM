@@ -1,0 +1,27 @@
+{
+  "name" : "llvm",
+  "version-string" : "1.0.0",
+  "builtin-baseline" : "acd5bba5aac8b6573b5f6f463dc0341ac0ee6fa4",
+  "dependencies" : [ {
+    "name" : "llvm",
+    "version>=" : "18.1.6#4"
+  }, {
+    "name" : "nlohmann-json",
+    "version>=" : "3.11.3#1"
+  }, {
+    "name" : "vcpkg-cmake-config",
+    "version>=" : "2024-05-23"
+  }, {
+    "name" : "vcpkg-cmake-get-vars",
+    "version>=" : "2024-09-22"
+  }, {
+    "name" : "vcpkg-cmake",
+    "version>=" : "2024-04-23"
+  }, {
+    "name" : "zlib",
+    "version>=" : "1.3.1"
+  }, {
+    "name" : "zstd",
+    "version>=" : "1.5.7"
+  } ]
+}
