@@ -1,5 +1,6 @@
 ; ModuleID = 'my cool jit'
 source_filename = "my cool jit"
+
 @.str = private unnamed_addr constant [4 x i8] c"%lf\00", align 1
 
 define double @fact(double %n) {
