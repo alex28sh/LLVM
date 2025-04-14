@@ -20,21 +20,54 @@ Value* BinExpr::codegen() {
         return nullptr;
 
     switch (op) {
+        // case BinOp::Add:
+        //     return Builder->CreateFAdd(L, R, "addtmp");
+        // case BinOp::Sub:
+        //     return Builder->CreateFSub(L, R, "subtmp");
+        // case BinOp::Mul:
+        //     return Builder->CreateFMul(L, R, "multmp");
+        // case BinOp::Lt:
+        //     L = Builder->CreateFCmpULT(L, R, "cmptmp");
+        //     return Builder->CreateUIToFP(L, Type::getDoubleTy(*TheContext), "booltmp");
+        // case BinOp::Eq:
+        //     L = Builder->CreateFCmpUEQ(L, R, "cmptmp");
+        //     return Builder->CreateUIToFP(L, Type::getDoubleTy(*TheContext), "booltmp");
+        // case BinOp::Le:
+        //     L = Builder->CreateFCmpULE(L, R, "cmptmp");
+        //     return Builder->CreateUIToFP(L, Type::getDoubleTy(*TheContext), "booltmp");
+        // default:
+        //     throw std::runtime_error("Not implemented binary op");
         case BinOp::Add:
-            return Builder->CreateFAdd(L, R, "addtmp");
+            return Builder->CreateAdd(L, R, "addtmp");
         case BinOp::Sub:
-            return Builder->CreateFSub(L, R, "subtmp");
+            return Builder->CreateSub(L, R, "subtmp");
         case BinOp::Mul:
-            return Builder->CreateFMul(L, R, "multmp");
+            return Builder->CreateMul(L, R, "multmp");
         case BinOp::Lt:
-            L = Builder->CreateFCmpULT(L, R, "cmptmp");
-            return Builder->CreateUIToFP(L, Type::getDoubleTy(*TheContext), "booltmp");
+            L = Builder->CreateICmpSLT(L, R, "cmptmp");
+        case BinOp::Gt:
+            L = Builder->CreateICmpSGT(L, R, "cmptmp");
+            return Builder->CreateZExt(L, Type::getInt64Ty(*TheContext), "booltmp");
         case BinOp::Eq:
-            L = Builder->CreateFCmpUEQ(L, R, "cmptmp");
-            return Builder->CreateUIToFP(L, Type::getDoubleTy(*TheContext), "booltmp");
+            L = Builder->CreateICmpEQ(L, R, "cmptmp");
+            return Builder->CreateZExt(L, Type::getInt64Ty(*TheContext), "booltmp");
+        case BinOp::Neq:
+            L = Builder->CreateICmpNE(L, R, "cmptmp");
+            return Builder->CreateZExt(L, Type::getInt64Ty(*TheContext), "booltmp");
         case BinOp::Le:
-            L = Builder->CreateFCmpULE(L, R, "cmptmp");
-            return Builder->CreateUIToFP(L, Type::getDoubleTy(*TheContext),
+            L = Builder->CreateICmpSLE(L, R, "cmptmp");
+            return Builder->CreateZExt(L, Type::getInt64Ty(*TheContext), "booltmp");
+        case BinOp::Ge:
+            L = Builder->CreateICmpSGE(L, R, "cmptmp");
+            return Builder->CreateZExt(L, Type::getInt64Ty(*TheContext), "booltmp");
+        case BinOp::Div:
+            return Builder->CreateSDiv(L, R, "divtmp");
+        case BinOp::Mod:
+            return Builder->CreateSRem(L, R, "modtmp");
+        case BinOp::And:
+            return Builder->CreateAnd(L, R, "andtmp");
+        case BinOp::Or:
+            return Builder->CreateOr(L, R, "ortmp");
         default:
             throw std::runtime_error("Not implemented binary op");
     }
@@ -81,21 +114,23 @@ Value* FunCall::codegen() {
 
 Value* Variable::codegen() {
 
-    Value *V;
-    if (NamedValues[name]->getType()->isPointerTy()) {
+    // Value *V;
+    // if (NamedValues[name]->getType()->isPointerTy()) {
         // std::cerr << name << "\n";
-        V = Builder->CreateLoad(Type::getDoubleTy(*TheContext), NamedValues[name], name + "_loaded");
+        // V = Builder->CreateLoad(Type::getInt64Ty(*TheContext), NamedValues[name], name + "_loaded");
+        // V = Builder->CreateLoad(Type::getDoubleTy(*TheContext), NamedValues[name], name + "_loaded");
         // V->getType()->print(errs());
-    } else {
-        V = NamedValues[name];
-    }
-    if (!V)
-        throw std::runtime_error("Unknown variable name");
-    return V;
+    // } else {
+    //     V = NamedValues[name];
+    // }
+    // if (!V)
+    //     throw std::runtime_error("Unknown variable name");
+    return Builder->CreateLoad(Type::getInt64Ty(*TheContext), NamedValues[name], name + "_loaded");
 }
 
 Value* Const::codegen() {
-    return ConstantFP::get(*TheContext, APFloat(value));
+    return ConstantInt::get(*TheContext, APInt(64, static_cast<uint64_t>(value)));
+    // return ConstantFP::get(*TheContext, APFloat(value));
 }
 
 
@@ -124,6 +159,11 @@ Value* FunCallStatement::codegen() {
 }
 
 Value* AssignmentStatement::codegen() {
+    std::cerr << varName;
+
+    // if (NamedValues[varName]->getType()->isPointerTy()) {
+    //     // std::cerr << name << "\n";
+    NamedValues[varName]->getType()->print(errs());
     Builder->CreateStore(expr->codegen(), NamedValues[varName]);
     return nullptr;
 }
@@ -136,7 +176,7 @@ Value* WriteStatement::codegen() {
     std::vector<Type *> argTypes = {formatStrGlobal->getType()};
 
     FunctionType *printType = FunctionType::get(
-        Builder->getInt32Ty(), argTypes, true);
+        Builder->getInt64Ty(), argTypes, true);
     FunctionCallee PrintFunc = TheModule->getOrInsertFunction("printf", printType);
 
     // PrintFunc.getFunctionType()->print(errs());
@@ -160,7 +200,7 @@ Value* ReadStatement::codegen() {
     std::vector<Type *> argTypes = {formatStrGlobal->getType()};
 
     FunctionType *scanfType = FunctionType::get(
-        Builder->getInt32Ty(), argTypes, true);
+        Builder->getInt64Ty(), argTypes, true);
     FunctionCallee ScanfFunc = TheModule->getOrInsertFunction("__isoc99_scanf", scanfType);
     if (!ScanfFunc)
         throw std::runtime_error("Unknown function '__isoc99_scanf'");
@@ -180,25 +220,36 @@ Value* WhileStatement::codegen() {
 
     Function *TheFunction = Builder->GetInsertBlock()->getParent();
     BasicBlock *PreheaderBB = Builder->GetInsertBlock();
-    BasicBlock *LoopBB = BasicBlock::Create(*TheContext, "loop", TheFunction);
+    BasicBlock *CondBB = BasicBlock::Create(*TheContext, "cond", TheFunction);
 
-    Builder->CreateBr(LoopBB);
-    Builder->SetInsertPoint(LoopBB);
+    Builder->CreateBr(CondBB);
+    Builder->SetInsertPoint(CondBB);
 
     Value *cond = condition->codegen();
     if (!cond)
         return nullptr;
-    cond = Builder->CreateFCmpONE(
-      cond, ConstantFP::get(*TheContext, APFloat(0.0)), "loopcond");
+    cond = Builder->CreateICmpNE(
+        cond, ConstantInt::get(*TheContext, APInt(64, 0)), "loopcond");
+    // cond = Builder->CreateFCmpONE(
+    //   cond, ConstantFP::get(*TheContext, APFloat(0.0)), "loopcond");
 
     BasicBlock *AfterBB =
         BasicBlock::Create(*TheContext, "afterloop", TheFunction);
 
-    Builder->CreateCondBr(cond, LoopBB, AfterBB);
+    BasicBlock *BodyBB = BasicBlock::Create(*TheContext, "body", TheFunction);
+
+    Builder->CreateCondBr(cond, BodyBB, AfterBB);
+    Builder->SetInsertPoint(BodyBB);
 
     body->codegen();
 
-    Builder->CreateCondBr(cond, LoopBB, AfterBB);
+    Value *cond_end = condition->codegen();
+    if (!cond_end)
+        return nullptr;
+    cond_end = Builder->CreateICmpNE(
+            cond_end, ConstantInt::get(*TheContext, APInt(64, 0)), "loopcond");
+    Builder->CreateCondBr(cond_end, BodyBB, AfterBB);
+    Builder->SetInsertPoint(AfterBB);
 
     return nullptr;
 }
@@ -209,8 +260,11 @@ Value* IfStatement::codegen() {
     if (!CondV)
         return nullptr;
 
-    CondV = Builder->CreateFCmpONE(
-        CondV, ConstantFP::get(*TheContext, APFloat(0.0)), "ifcond");
+    CondV = Builder->CreateICmpNE(
+        CondV, ConstantInt::get(*TheContext, APInt(64, 0)), "ifcond");
+
+    // CondV = Builder->CreateFCmpONE(
+    //     CondV, ConstantFP::get(*TheContext, APFloat(0.0)), "ifcond");
 
     Function *TheFunction = Builder->GetInsertBlock()->getParent();
 
@@ -239,7 +293,8 @@ Value* IfStatement::codegen() {
     Builder->SetInsertPoint(MergeBB);
 
     if (ThenV && ElseV) {
-        PHINode *PN = Builder->CreatePHI(Type::getDoubleTy(*TheContext), 2, "iftmp");
+        // PHINode *PN = Builder->CreatePHI(Type::getDoubleTy(*TheContext), 2, "iftmp");
+        PHINode *PN = Builder->CreatePHI(Type::getInt64Ty(*TheContext), 2, "iftmp");
 
         PN->addIncoming(ThenV, ThenBB);
         PN->addIncoming(ElseV, ElseBB);
@@ -249,7 +304,8 @@ Value* IfStatement::codegen() {
 }
 
 Value* VarDeclStatement::codegen() {
-    NamedValues[varName] = Builder->CreateAlloca(Type::getDoubleTy(*TheContext), nullptr, varName);
+    NamedValues[varName] = Builder->CreateAlloca(Type::getInt64Ty(*TheContext), nullptr, varName);
+    // NamedValues[varName] = Builder->CreateAlloca(Type::getDoubleTy(*TheContext), nullptr, varName);
     return nullptr;
 }
 
@@ -266,17 +322,22 @@ Value* SkipStatement::codegen() {
 }
 
 Function* Definition::codegen() {
-    std::vector<Type *> Doubles(args.size(), Type::getDoubleTy(*TheContext));
+    // std::vector<Type *> Doubles(args.size(), Type::getDoubleTy(*TheContext));
+    //
+    // FunctionType *FT =
+    //     FunctionType::get(Type::getDoubleTy(*TheContext), Doubles, false);
+
+    std::vector<Type *> Integers(args.size(), Type::getInt64Ty(*TheContext));
 
     FunctionType *FT =
-        FunctionType::get(Type::getDoubleTy(*TheContext), Doubles, false);
+        FunctionType::get(Type::getInt64Ty(*TheContext), Integers, false);
 
     Function *F =
         Function::Create(FT, Function::ExternalLinkage, name, TheModule.get());
 
     unsigned Idx = 0;
     for (auto &Arg : F->args())
-        Arg.setName(args[Idx++]);
+        Arg.setName(args[Idx++] + "_ARG");
 
 
     Function *TheFunction = TheModule->getFunction(name);
@@ -292,8 +353,19 @@ Function* Definition::codegen() {
     Builder->SetInsertPoint(BB);
 
     NamedValues.clear();
-    for (auto &Arg : TheFunction->args())
-        NamedValues[std::string(Arg.getName())] = &Arg;
+
+    Idx = 0;
+    for (auto &Arg : TheFunction->args()) {
+        //&Arg;
+        NamedValues[args[Idx]] = Builder->CreateAlloca(Type::getInt64Ty(*TheContext), nullptr, args[Idx]);
+        Idx++;
+    }
+
+    Idx = 0;
+    for (auto &Arg : TheFunction->args()) {
+        Builder->CreateStore(&Arg, NamedValues[args[Idx]]);
+        Idx++;
+    }
 
     if (Value *RetVal = body->codegen()) {
         Builder->CreateRet(RetVal);
@@ -317,7 +389,7 @@ void Program::constgen() {
 
     formatStrConstant = ConstantDataArray::getString(
         *TheContext,
-        "%lf",
+        "%ld",
         true);
     formatStrType = ArrayType::get(Type::getInt8Ty(*TheContext), 4); // 4 = "%f\n" + '\0'
     formatStrGlobal = new GlobalVariable(
@@ -328,6 +400,19 @@ void Program::constgen() {
         formatStrConstant,
         ".str"
     );
+    // formatStrConstant = ConstantDataArray::getString(
+    //     *TheContext,
+    //     "%lf",
+    //     true);
+    // formatStrType = ArrayType::get(Type::getInt8Ty(*TheContext), 4); // 4 = "%f\n" + '\0'
+    // formatStrGlobal = new GlobalVariable(
+    //     *TheModule,
+    //     formatStrType,
+    //     true,                                // isConstant
+    //     GlobalValue::PrivateLinkage,
+    //     formatStrConstant,
+    //     ".str"
+    // );
     formatStrGlobal->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
     formatStrGlobal->setAlignment(MaybeAlign(1));
 
