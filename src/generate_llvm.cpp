@@ -372,6 +372,8 @@ Function* Definition::codegen() {
 
         verifyFunction(*TheFunction);
 
+        TheFPM->run(*TheFunction, *TheFAM);
+
         // std::cerr << "Definition " << name << " compiled\n";
 
         return TheFunction;

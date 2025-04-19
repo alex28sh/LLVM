@@ -19,7 +19,9 @@ include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
 # Link the LLVM libraries
-llvm_map_components_to_libnames(llvm_libs support core irreader)
+llvm_map_components_to_libnames(llvm_libs support core passes irreader)
+
+add_subdirectory(lib)
 
 add_executable(LLVM_PROJ
         include/expression.h
@@ -33,9 +35,19 @@ add_executable(LLVM_PROJ
         src/main.cpp
 )
 
+include(FetchContent)
+FetchContent_Declare(
+        argparse
+        GIT_REPOSITORY https://github.com/p-ranav/argparse.git
+)
+FetchContent_MakeAvailable(argparse)
+
+#target_compile_options(LLVM_PROJ PRIVATE `llvm-config --cxxflags --ldflags --system-libs --libs core orcjit nativ`)
 #find_package(nlohmann_json CONFIG REQUIRED)
 #target_link_libraries(main PRIVATE nlohmann_json::nlohmann_json)
 
 target_link_libraries(LLVM_PROJ PRIVATE nlohmann_json::nlohmann_json)
 #target_link_libraries(LLVM_PROJ PRIVATE LLVM)
 target_link_libraries(LLVM_PROJ PRIVATE ${llvm_libs})
+target_link_libraries(LLVM_PROJ PRIVATE MyPasslib)
+target_link_libraries(LLVM_PROJ PRIVATE argparse)

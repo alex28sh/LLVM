@@ -35,3 +35,11 @@ extern std::map<std::string, Value *> NamedValues;
 extern Constant *formatStrConstant;
 extern ArrayType *formatStrType;
 extern GlobalVariable *formatStrGlobal;
+
+extern std::unique_ptr<FunctionPassManager> TheFPM;
+extern std::unique_ptr<LoopAnalysisManager> TheLAM;
+extern std::unique_ptr<FunctionAnalysisManager> TheFAM;
+extern std::unique_ptr<CGSCCAnalysisManager> TheCGAM;
+extern std::unique_ptr<ModuleAnalysisManager> TheMAM;
+extern std::unique_ptr<PassInstrumentationCallbacks> ThePIC;
+extern std::unique_ptr<StandardInstrumentations> TheSI;
