@@ -18,7 +18,7 @@ std::unique_ptr<ModuleAnalysisManager> TheMAM;
 std::unique_ptr<PassInstrumentationCallbacks> ThePIC;
 std::unique_ptr<StandardInstrumentations> TheSI;
 
-void InitializeModule(bool optimize) {
+void InitializeModule(const std::vector<std::string>& optPasses) {
     TheContext = std::make_unique<LLVMContext>();
     TheModule = std::make_unique<Module>("my cool jit", *TheContext);
     Builder = std::make_unique<IRBuilder<>>(*TheContext);
@@ -33,12 +33,22 @@ void InitializeModule(bool optimize) {
                                                        /*DebugLogging*/ true);
     TheSI->registerCallbacks(*ThePIC, TheMAM.get());
 
-    if (optimize) {
-        TheFPM->addPass(InstCombinePass());
-        TheFPM->addPass(ReassociatePass());
-        TheFPM->addPass(GVNPass());
-        TheFPM->addPass(SimplifyCFGPass());
-        TheFPM->addPass(MyPass());
+    std::unordered_map<std::string, std::function<void()>> passMap = {
+        {"InstCombine", []() { TheFPM->addPass(InstCombinePass()); }},
+        {"Reassociate", []() { TheFPM->addPass(ReassociatePass()); }},
+        {"GVN",         []() { TheFPM->addPass(GVNPass()); }},
+        {"SimplifyCFG", []() { TheFPM->addPass(SimplifyCFGPass()); }},
+        {"MyPass",      []() { TheFPM->addPass(MyPass()); }},
+    };
+
+    // Loop through the provided pass names and add them if found.
+    for (const auto& passName : optPasses) {
+        auto it = passMap.find(passName);
+        if (it != passMap.end()) {
+            it->second();
+        } else {
+            errs() << "Warning: Unknown pass '" << passName << "'\n";
+        }
     }
 
     PassBuilder PB;
@@ -59,9 +69,8 @@ int main(int argc, char* argv[]) {
         .help("output file");
 
     program.add_argument("--optimize")
-        .default_value(false)
-        .implicit_value(true)
-        .help("optimize");
+        .help("List of passes to perform")
+        .nargs(argparse::nargs_pattern::at_least_one);
 
     program.parse_args(argc, argv);
 
@@ -69,7 +78,12 @@ int main(int argc, char* argv[]) {
     nlohmann::json data = nlohmann::json::parse(f);
     auto prg = prg_from_json(data);
 
-    InitializeModule(program.get<bool>("optimize"));
+    std::vector<std::string> optPasses;
+    if (program.present("--optimize")) {
+        optPasses = program.get<std::vector<std::string>>("--optimize");
+    }
+
+    InitializeModule(optPasses);
 
     if  (!TheModule) {
         throw std::runtime_error("failed to load module");
