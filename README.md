@@ -13,3 +13,5 @@ Run with arguments like
 1) input file
 2) output file
 3) --optimize - optional flag to perform optimizations (right now only library optimizations, like InstCombinePass, SimplifyCFGPass ...)
+
+For the In-tree integration of ```MyPass``` follow the instructions, described [here](https://github.com/alexjung/Writing-an-LLVM-Pass-using-the-new-PassManager?tab=readme-ov-file).
