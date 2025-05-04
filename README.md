@@ -8,10 +8,12 @@ Run with arguments like
 ../json_examples/prg3                
 ../llvm_compiled/llvm3_expr_self_opt.ll
 --optimize
+MyConstantProp
+MyBranchElim
 ```
 
 1) input file
 2) output file
-3) --optimize - optional flag to perform optimizations (right now only library optimizations, like InstCombinePass, SimplifyCFGPass ...)
+3) --optimize - accepts a list of names of optimizations to be applied
 
-For the In-tree integration of ```MyPass``` follow the instructions, described [here](https://github.com/alexjung/Writing-an-LLVM-Pass-using-the-new-PassManager?tab=readme-ov-file).
+For the In-tree integration of ```MyConstantProp``` follow the instructions, described [here](https://github.com/10x-Engineers/tutorial-llvm-pass/blob/main/tutorial_hello.md).

@@ -38,7 +38,8 @@ void InitializeModule(const std::vector<std::string>& optPasses) {
         {"Reassociate", []() { TheFPM->addPass(ReassociatePass()); }},
         {"GVN",         []() { TheFPM->addPass(GVNPass()); }},
         {"SimplifyCFG", []() { TheFPM->addPass(SimplifyCFGPass()); }},
-        {"MyPass",      []() { TheFPM->addPass(MyPass()); }},
+        {"MyConstantProp",      []() { TheFPM->addPass(MyConstantProp()); }},
+        {"MyBranchElim",        []() { TheFPM->addPass(MyBranchElim()); }},
     };
 
     // Loop through the provided pass names and add them if found.

@@ -1,1 +1,3 @@
-add_subdirectory(MyPass)
+add_subdirectory(MyConstantProp)
+
+add_subdirectory(MyBranchElim)
