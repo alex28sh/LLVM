@@ -1,0 +1,12 @@
+def main() {
+    var a;
+    var b;
+    a := 2;
+    b := a * 4;
+    if b > a {
+        write b;
+    } else {
+        write a;
+    }
+    return 0;
+} 

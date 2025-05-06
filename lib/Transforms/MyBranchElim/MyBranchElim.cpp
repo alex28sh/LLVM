@@ -1,91 +1,84 @@
+#include <iostream>
+
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Dominators.h"  // Include for DominatorTree
+#include "llvm/IR/Function.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/Transforms/Utils/PromoteMemToReg.h"
-#include "llvm/IR/Dominators.h"  // Include for DominatorTree
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/ConstantFold.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-
-
-#include  <iostream>
 
 using namespace llvm;
 
-PreservedAnalyses MyBranchElim::run(Function &F, FunctionAnalysisManager &FAM) {
+PreservedAnalyses MyBranchElim::run(Function &F, FunctionAnalysisManager &) {
+  std::cout << "MyBranchElim in function: " << F.getName().str() << std::endl;
 
-    std::cout << "MyBranchElim in function: " << F.getName().str() << std::endl;
+  bool changed = false;
 
-    bool changed = false;
+  // write smth
+  SmallVector<std::pair<BasicBlock *, BasicBlock *>, 4> merges;
 
-    // write smth
-    SmallVector<std::pair<BasicBlock*, BasicBlock*>, 4> Merges;
+  for (auto &bb : F) {
+    for (auto ii = bb.begin(), ie = bb.end(); ii != ie;) {
+      Instruction *inst = &*ii++;
+      if (auto *branch = dyn_cast<BranchInst>(inst)) {
+        if (branch->isConditional()) {
+          if (const auto *cond_val = dyn_cast<ConstantInt>(branch->getCondition())) {
+            BasicBlock *target_bb = cond_val->isOne() ? branch->getSuccessor(0)
+                                                    : branch->getSuccessor(1);
 
-    for (auto &BB : F) {
-        for (auto II = BB.begin(), IE = BB.end(); II != IE; ) {
-            Instruction *Inst = &*II++;
-            if (auto *Branch = dyn_cast<BranchInst>(Inst)) {
-                if (Branch->isConditional()) {
-                    if (auto *CondVal = dyn_cast<ConstantInt>(Branch->getCondition())) {
+            BranchInst *new_branch = BranchInst::Create(target_bb);
+            ReplaceInstWithInst(branch, new_branch);
 
-                        BasicBlock *TargetBB = CondVal->isOne() ? Branch->getSuccessor(0) : Branch->getSuccessor(1);
-
-                        BranchInst *NewBranch = BranchInst::Create(TargetBB);
-                        ReplaceInstWithInst(Branch, NewBranch);
-
-                        if (TargetBB->hasNPredecessors(1)) {
-                            Merges.push_back({ &BB, TargetBB });
-                        }
-                        changed = true;
-                    }
-                } else {
-                    BasicBlock *TargetBB = Branch->getSuccessor(0);
-
-                    if (TargetBB->hasNPredecessors(1)) {
-                        Merges.push_back({ &BB, TargetBB });
-                        changed = true;
-                    }
-                }
+            if (target_bb->hasNPredecessors(1)) {
+              merges.push_back({&bb, target_bb});
             }
-        }
-    }
-
-    for (auto BB = F.begin(), E = F.end(); BB != E; ) {
-        BasicBlock *CurrBB = &*BB++;
-
-        if (CurrBB == &F.getEntryBlock())
-            continue;
-
-        if (CurrBB->hasNPredecessors(0)) {
             changed = true;
-
-            for (auto *SuccBB : successors(CurrBB)) {
-                for (auto &PI : SuccBB->phis())
-                    PI.removeIncomingValue(CurrBB, true);
-            }
-
-            CurrBB->eraseFromParent();
+          }
+        } else {
+          if (BasicBlock *target_bb = branch->getSuccessor(0);
+              target_bb->hasNPredecessors(1)) {
+            merges.push_back({&bb, target_bb});
+            changed = true;
+          }
         }
+      }
     }
+  }
 
-    for (auto &Pair : Merges) {
-        BasicBlock *SourceBB = Pair.first;
-        BasicBlock *TargetBB = Pair.second;
+  for (auto bb = F.begin(), e = F.end(); bb != e;) {
+    BasicBlock *curr_bb = &*bb++;
 
-        auto merged = MergeBlockIntoPredecessor(TargetBB);
+    if (curr_bb == &F.getEntryBlock()) continue;
 
-        assert(merged && ("Didn't merge " + TargetBB->getName().str() + " into " + SourceBB->getName().str()).data());
+    if (curr_bb->hasNPredecessors(0)) {
+      changed = true;
+
+      for (auto *succ_bb : successors(curr_bb)) {
+        for (auto &pi : succ_bb->phis()) pi.removeIncomingValue(curr_bb, true);
+      }
+
+      curr_bb->eraseFromParent();
     }
+  }
 
-    if (!changed) {
-        return PreservedAnalyses::all();
-    }
-    return PreservedAnalyses::none();
+  for (auto &[fst, snd] : merges) {
+    const BasicBlock *source_bb = fst;
+    BasicBlock *target_bb = snd;
+
+    const auto merged = MergeBlockIntoPredecessor(target_bb);
+
+    assert(merged && ("Didn't merge " + target_bb->getName().str() + " into " +
+                      source_bb->getName().str())
+                         .data());
+  }
+
+  if (!changed) {
+    return PreservedAnalyses::all();
+  }
+  return PreservedAnalyses::none();
 }

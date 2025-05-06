@@ -16,4 +16,36 @@ MyBranchElim
 2) output file
 3) --optimize - accepts a list of names of optimizations to be applied
 
-For the In-tree integration of ```MyConstantProp``` follow the instructions, described [here](https://github.com/10x-Engineers/tutorial-llvm-pass/blob/main/tutorial_hello.md).
+Supported language features:
+- Functions
+- While loops
+- If statements
+
+Implemented optimizations:
+- Constant propagation
+- Branch elimination (if statement is always true or always false)
+
+Example of program (look original_programs):
+```
+def gcd(a, b) {
+    while (a != 0 && b != 0) {
+        if (a > b) {
+            a := a - b;
+        } else {
+            b := b - a;
+        }
+    }
+    return a + b;
+}
+
+def main() {
+    var a;
+    var b;
+    read a;
+    read b;
+    write gcd(a, b);
+    return 0;
+}
+```
+
+For the In-tree integration of ```MyConstantProp``` and ```MyBranchElim``` follow the instructions, described [here](https://github.com/10x-Engineers/tutorial-llvm-pass/blob/main/tutorial_hello.md).

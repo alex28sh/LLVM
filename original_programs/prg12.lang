@@ -1,0 +1,19 @@
+def main() {
+    var i;
+    var j;
+    var sum;
+    sum := 0;
+    i := 0;
+    while (i < 0) {
+        j := 0;
+        while (j < 5) {
+            sum := sum + j;
+            j := j + 1;
+        }
+        write i;
+        i := i + 1;
+    }
+    write sum;
+    write 42;
+    return 0;
+} 

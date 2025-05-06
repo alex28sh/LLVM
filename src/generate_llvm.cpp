@@ -1,436 +1,338 @@
-
-#include "../include/expression.h"
-#include "../include/statement.h"
 #include "../include/generate_llvm.h"
 
 #include <iostream>
 
+#include "../include/expression.h"
+#include "../include/statement.h"
 #include "llvm/IR/GlobalVariable.h"
 
-std::map<std::string, Value *> NamedValues;
+std::map<std::string, llvm::Value *> NamedValues;
 
-Constant *formatStrConstant;
-ArrayType *formatStrType;
-GlobalVariable *formatStrGlobal;
+llvm::Constant *formatStrConstant;
+llvm::ArrayType *formatStrType;
+llvm::GlobalVariable *formatStrGlobal;
 
-Value* BinExpr::codegen() {
-    Value *L = left->codegen();
-    Value *R = right->codegen();
-    if (!L || !R)
-        return nullptr;
+llvm::Value *BinExpr::codegen() {
+  llvm::Value *l = left->codegen();
+  llvm::Value *r = right->codegen();
+  if (!l || !r) return nullptr;
 
-    switch (op) {
-        // case BinOp::Add:
-        //     return Builder->CreateFAdd(L, R, "addtmp");
-        // case BinOp::Sub:
-        //     return Builder->CreateFSub(L, R, "subtmp");
-        // case BinOp::Mul:
-        //     return Builder->CreateFMul(L, R, "multmp");
-        // case BinOp::Lt:
-        //     L = Builder->CreateFCmpULT(L, R, "cmptmp");
-        //     return Builder->CreateUIToFP(L, Type::getDoubleTy(*TheContext), "booltmp");
-        // case BinOp::Eq:
-        //     L = Builder->CreateFCmpUEQ(L, R, "cmptmp");
-        //     return Builder->CreateUIToFP(L, Type::getDoubleTy(*TheContext), "booltmp");
-        // case BinOp::Le:
-        //     L = Builder->CreateFCmpULE(L, R, "cmptmp");
-        //     return Builder->CreateUIToFP(L, Type::getDoubleTy(*TheContext), "booltmp");
-        // default:
-        //     throw std::runtime_error("Not implemented binary op");
-        case BinOp::Add:
-            return Builder->CreateAdd(L, R, "addtmp");
-        case BinOp::Sub:
-            return Builder->CreateSub(L, R, "subtmp");
-        case BinOp::Mul:
-            return Builder->CreateMul(L, R, "multmp");
-        case BinOp::Lt:
-            L = Builder->CreateICmpSLT(L, R, "cmptmp");
-        case BinOp::Gt:
-            L = Builder->CreateICmpSGT(L, R, "cmptmp");
-            return Builder->CreateZExt(L, Type::getInt64Ty(*TheContext), "booltmp");
-        case BinOp::Eq:
-            L = Builder->CreateICmpEQ(L, R, "cmptmp");
-            return Builder->CreateZExt(L, Type::getInt64Ty(*TheContext), "booltmp");
-        case BinOp::Neq:
-            L = Builder->CreateICmpNE(L, R, "cmptmp");
-            return Builder->CreateZExt(L, Type::getInt64Ty(*TheContext), "booltmp");
-        case BinOp::Le:
-            L = Builder->CreateICmpSLE(L, R, "cmptmp");
-            return Builder->CreateZExt(L, Type::getInt64Ty(*TheContext), "booltmp");
-        case BinOp::Ge:
-            L = Builder->CreateICmpSGE(L, R, "cmptmp");
-            return Builder->CreateZExt(L, Type::getInt64Ty(*TheContext), "booltmp");
-        case BinOp::Div:
-            return Builder->CreateSDiv(L, R, "divtmp");
-        case BinOp::Mod:
-            return Builder->CreateSRem(L, R, "modtmp");
-        case BinOp::And:
-            return Builder->CreateAnd(L, R, "andtmp");
-        case BinOp::Or:
-            return Builder->CreateOr(L, R, "ortmp");
-        default:
-            throw std::runtime_error("Not implemented binary op");
-    }
+  switch (op) {
+    case BinOp::Add:
+      return builder->CreateAdd(l, r, "addtmp");
+    case BinOp::Sub:
+      return builder->CreateSub(l, r, "subtmp");
+    case BinOp::Mul:
+      return builder->CreateMul(l, r, "multmp");
+    case BinOp::Lt:
+      l = builder->CreateICmpSLT(l, r, "cmptmp");
+    case BinOp::Gt:
+      l = builder->CreateICmpSGT(l, r, "cmptmp");
+      return builder->CreateZExt(l, llvm::Type::getInt64Ty(*the_context),
+                                 "booltmp");
+    case BinOp::Eq:
+      l = builder->CreateICmpEQ(l, r, "cmptmp");
+      return builder->CreateZExt(l, llvm::Type::getInt64Ty(*the_context),
+                                 "booltmp");
+    case BinOp::Neq:
+      l = builder->CreateICmpNE(l, r, "cmptmp");
+      return builder->CreateZExt(l, llvm::Type::getInt64Ty(*the_context),
+                                 "booltmp");
+    case BinOp::Le:
+      l = builder->CreateICmpSLE(l, r, "cmptmp");
+      return builder->CreateZExt(l, llvm::Type::getInt64Ty(*the_context),
+                                 "booltmp");
+    case BinOp::Ge:
+      l = builder->CreateICmpSGE(l, r, "cmptmp");
+      return builder->CreateZExt(l, llvm::Type::getInt64Ty(*the_context),
+                                 "booltmp");
+    case BinOp::Div:
+      return builder->CreateSDiv(l, r, "divtmp");
+    case BinOp::Mod:
+      return builder->CreateSRem(l, r, "modtmp");
+    case BinOp::And:
+      return builder->CreateAnd(l, r, "andtmp");
+    case BinOp::Or:
+      return builder->CreateOr(l, r, "ortmp");
+    default:
+      throw std::runtime_error("Not implemented binary op");
+  }
 }
 
-Value* UnExpr::codegen() {
-    Value *Expr = expr->codegen();
-    switch (op) {
-        case UnOp::SubUn:
-            return Builder->CreateNeg(Expr, "neg");
-        default:
-            throw std::runtime_error("Not implemented unary op");
-    }
+llvm::Value *UnExpr::codegen() {
+  llvm::Value *expr_val = expr->codegen();
+  switch (op) {
+    case UnOp::SubUn:
+      return builder->CreateNeg(expr_val, "neg");
+    default:
+      throw std::runtime_error("Not implemented unary op");
+  }
 }
 
-Value* FunCall::codegen() {
-    Function *CalleeF = TheModule->getFunction(name);
+llvm::Value *FunCall::codegen() {
+  llvm::Function *callee_f = the_module->getFunction(name);
 
-    if (!CalleeF)
-        throw std::runtime_error("Unknown function referenced");
+  if (!callee_f) throw std::runtime_error("Unknown function referenced");
 
-    // If argument mismatch error.
-    if (CalleeF->arg_size() != args.size())
-        throw std::runtime_error("Incorrect # arguments passed");
+  if (callee_f->arg_size() != args.size())
+    throw std::runtime_error("Incorrect # arguments passed");
 
-    std::vector<Value *> ArgsV;
-    for (unsigned i = 0, e = args.size(); i != e; ++i) {
-        ArgsV.push_back(args[i]->codegen());
-        if (!ArgsV.back())
-            return nullptr;
-    }
-    // CalleeF->getFunctionType()->print(errs());
-    // std::cerr << CalleeF->getFunctionType()->getNumParams() << "\n";
+  std::vector<llvm::Value *> args_v;
+  for (unsigned i = 0, e = args.size(); i != e; ++i) {
+    args_v.push_back(args[i]->codegen());
+    if (!args_v.back()) return nullptr;
+  }
 
-    // for (unsigned i = 0; i != ArgsV.size(); ++i) {
-    //     CalleeF->getFunctionType()->getParamType(i)->print(errs());
-    //     ArgsV[i]->getType()->print(errs());
-    //     // std::cerr << (i >= CalleeF->getFunctionType()->getNumParams()) << " " <<
-    //     //         (CalleeF->getFunctionType()->getParamType(i) == ArgsV[i]->getType()) << " ";
-    // }
-
-    return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+  return builder->CreateCall(callee_f, args_v, "calltmp");
 }
 
-Value* Variable::codegen() {
-
-    // Value *V;
-    // if (NamedValues[name]->getType()->isPointerTy()) {
-        // std::cerr << name << "\n";
-        // V = Builder->CreateLoad(Type::getInt64Ty(*TheContext), NamedValues[name], name + "_loaded");
-        // V = Builder->CreateLoad(Type::getDoubleTy(*TheContext), NamedValues[name], name + "_loaded");
-        // V->getType()->print(errs());
-    // } else {
-    //     V = NamedValues[name];
-    // }
-    // if (!V)
-    //     throw std::runtime_error("Unknown variable name");
-    return Builder->CreateLoad(Type::getInt64Ty(*TheContext), NamedValues[name], name + "_loaded");
+llvm::Value *Variable::codegen() {
+  return builder->CreateLoad(llvm::Type::getInt64Ty(*the_context),
+                             NamedValues[name], name + "_loaded");
 }
 
-Value* Const::codegen() {
-    return ConstantInt::get(*TheContext, APInt(64, static_cast<uint64_t>(value)));
-    // return ConstantFP::get(*TheContext, APFloat(value));
+llvm::Value *Const::codegen() {
+  return llvm::ConstantInt::get(*the_context,
+                                llvm::APInt(64, static_cast<uint64_t>(value)));
 }
 
+llvm::Value *ReturnStatement::codegen() { return expr->codegen(); }
 
-Value* ReturnStatement::codegen() {
-    return expr->codegen();
+llvm::Value *FunCallStatement::codegen() {
+  llvm::Function *callee_f = the_module->getFunction(name);
+
+  if (!callee_f) throw std::runtime_error("Unknown function referenced");
+
+  if (callee_f->arg_size() != args.size())
+    throw std::runtime_error("Incorrect # arguments passed");
+
+  std::vector<llvm::Value *> args_v;
+  for (unsigned i = 0, e = args.size(); i != e; ++i) {
+    args_v.push_back(args[i]->codegen());
+    if (!args_v.back()) return nullptr;
+  }
+
+  builder->CreateCall(callee_f, args_v, "calltmp");
+  return nullptr;
 }
 
-Value* FunCallStatement::codegen() {
-    Function *CalleeF = TheModule->getFunction(name);
-
-    if (!CalleeF)
-        throw std::runtime_error("Unknown function referenced");
-
-    if (CalleeF->arg_size() != args.size())
-        throw std::runtime_error("Incorrect # arguments passed");
-
-    std::vector<Value *> ArgsV;
-    for (unsigned i = 0, e = args.size(); i != e; ++i) {
-        ArgsV.push_back(args[i]->codegen());
-        if (!ArgsV.back())
-            return nullptr;
-    }
-
-    Builder->CreateCall(CalleeF, ArgsV, "calltmp");
-    return nullptr;
+llvm::Value *AssignmentStatement::codegen() {
+  NamedValues[varName]->getType()->print(llvm::errs());
+  builder->CreateStore(expr->codegen(), NamedValues[varName]);
+  return nullptr;
 }
 
-Value* AssignmentStatement::codegen() {
-    std::cerr << varName;
+llvm::Value *WriteStatement::codegen() {
+  llvm::Value *expr_val = expr->codegen();
+  if (!expr_val) return nullptr;
 
-    // if (NamedValues[varName]->getType()->isPointerTy()) {
-    //     // std::cerr << name << "\n";
-    NamedValues[varName]->getType()->print(errs());
-    Builder->CreateStore(expr->codegen(), NamedValues[varName]);
-    return nullptr;
+  std::vector<llvm::Type *> arg_types = {formatStrGlobal->getType()};
+
+  llvm::FunctionType *print_type =
+      llvm::FunctionType::get(builder->getInt64Ty(), arg_types, true);
+  llvm::FunctionCallee print_func =
+      the_module->getOrInsertFunction("printf", print_type);
+
+  if (!print_func) throw std::runtime_error("Unknown function 'printf'");
+
+  builder->CreateCall(print_func, {formatStrGlobal, expr_val}, "printfcall");
+  return nullptr;
 }
 
-Value* WriteStatement::codegen() {
-    Value *ExprVal = expr->codegen();
-    if (!ExprVal)
-        return nullptr;
+llvm::Value *ReadStatement::codegen() {
+  llvm::Value *var = NamedValues[varName];
 
-    std::vector<Type *> argTypes = {formatStrGlobal->getType()};
+  if (!var) return nullptr;
 
-    FunctionType *printType = FunctionType::get(
-        Builder->getInt64Ty(), argTypes, true);
-    FunctionCallee PrintFunc = TheModule->getOrInsertFunction("printf", printType);
+  llvm::Value *var_ptr = var;
 
-    // PrintFunc.getFunctionType()->print(errs());
+  std::vector<llvm::Type *> arg_types = {formatStrGlobal->getType()};
 
-    if (!PrintFunc)
-        throw std::runtime_error("Unknown function 'printf'");
+  llvm::FunctionType *scanf_type =
+      llvm::FunctionType::get(builder->getInt64Ty(), arg_types, true);
+  llvm::FunctionCallee scanf_func =
+      the_module->getOrInsertFunction("__isoc99_scanf", scanf_type);
+  if (!scanf_func) throw std::runtime_error("Unknown function '__isoc99_scanf'");
 
-    Builder->CreateCall(PrintFunc, {formatStrGlobal, ExprVal}, "printfcall");
-    return nullptr;
+  llvm::ArrayRef<llvm::Value *> args = {formatStrGlobal, var_ptr};
+
+  builder->CreateCall(scanf_func, args, "scanfcall");
+  return nullptr;
 }
 
-Value* ReadStatement::codegen() {
+llvm::Value *WhileStatement::codegen() {
+  llvm::Function *the_function = builder->GetInsertBlock()->getParent();
+  llvm::BasicBlock *preheader_bb = builder->GetInsertBlock();
+  llvm::BasicBlock *cond_bb =
+      llvm::BasicBlock::Create(*the_context, "cond", the_function);
 
-    Value *var = NamedValues[varName];
+  builder->CreateBr(cond_bb);
+  builder->SetInsertPoint(cond_bb);
 
-    if (!var)
-        return nullptr;
+  llvm::Value *cond = condition->codegen();
+  if (!cond) return nullptr;
+  cond = builder->CreateICmpNE(
+      cond, llvm::ConstantInt::get(*the_context, llvm::APInt(64, 0)),
+      "loopcond");
 
-    Value *varPtr = var; //Builder->CreateLoad(var->getType(), var, varName + "_ptr");
+  llvm::BasicBlock *after_bb =
+      llvm::BasicBlock::Create(*the_context, "afterloop", the_function);
 
-    std::vector<Type *> argTypes = {formatStrGlobal->getType()};
+  llvm::BasicBlock *body_bb =
+      llvm::BasicBlock::Create(*the_context, "body", the_function);
 
-    FunctionType *scanfType = FunctionType::get(
-        Builder->getInt64Ty(), argTypes, true);
-    FunctionCallee ScanfFunc = TheModule->getOrInsertFunction("__isoc99_scanf", scanfType);
-    if (!ScanfFunc)
-        throw std::runtime_error("Unknown function '__isoc99_scanf'");
-    // ScanfFunc.getFunctionType()->print(errs());
+  builder->CreateCondBr(cond, body_bb, after_bb);
+  builder->SetInsertPoint(body_bb);
 
-    ArrayRef <Value*> args = {formatStrGlobal, varPtr};
-    // std::cerr << "\n";
-    // for (unsigned i = 0; i != args.size(); ++i)
-    //     std::cerr << (i >= scanfType->getNumParams() ||
-    //             scanfType->getParamType(i) == args[i]->getType()) << "\n";
+  body->codegen();
 
-    Builder->CreateCall(ScanfFunc, args, "scanfcall");
-    return nullptr;
+  llvm::Value *cond_end = condition->codegen();
+  if (!cond_end) return nullptr;
+  cond_end = builder->CreateICmpNE(
+      cond_end, llvm::ConstantInt::get(*the_context, llvm::APInt(64, 0)),
+      "loopcond");
+  builder->CreateCondBr(cond_end, body_bb, after_bb);
+  builder->SetInsertPoint(after_bb);
+
+  return nullptr;
 }
 
-Value* WhileStatement::codegen() {
+llvm::Value *IfStatement::codegen() {
+  llvm::Value *cond_v = condition->codegen();
+  if (!cond_v) return nullptr;
 
-    Function *TheFunction = Builder->GetInsertBlock()->getParent();
-    BasicBlock *PreheaderBB = Builder->GetInsertBlock();
-    BasicBlock *CondBB = BasicBlock::Create(*TheContext, "cond", TheFunction);
+  cond_v = builder->CreateICmpNE(
+      cond_v, llvm::ConstantInt::get(*the_context, llvm::APInt(64, 0)), "ifcond");
 
-    Builder->CreateBr(CondBB);
-    Builder->SetInsertPoint(CondBB);
+  llvm::Function *the_function = builder->GetInsertBlock()->getParent();
 
-    Value *cond = condition->codegen();
-    if (!cond)
-        return nullptr;
-    cond = Builder->CreateICmpNE(
-        cond, ConstantInt::get(*TheContext, APInt(64, 0)), "loopcond");
-    // cond = Builder->CreateFCmpONE(
-    //   cond, ConstantFP::get(*TheContext, APFloat(0.0)), "loopcond");
+  llvm::BasicBlock *then_bb =
+      llvm::BasicBlock::Create(*the_context, "then", the_function);
+  llvm::BasicBlock *else_bb = llvm::BasicBlock::Create(*the_context, "else");
+  llvm::BasicBlock *merge_bb = llvm::BasicBlock::Create(*the_context, "ifcont");
 
-    BasicBlock *AfterBB =
-        BasicBlock::Create(*TheContext, "afterloop", TheFunction);
+  builder->CreateCondBr(cond_v, then_bb, else_bb);
 
-    BasicBlock *BodyBB = BasicBlock::Create(*TheContext, "body", TheFunction);
+  builder->SetInsertPoint(then_bb);
 
-    Builder->CreateCondBr(cond, BodyBB, AfterBB);
-    Builder->SetInsertPoint(BodyBB);
+  llvm::Value *then_v = trueBranch->codegen();
 
-    body->codegen();
+  builder->CreateBr(merge_bb);
+  then_bb = builder->GetInsertBlock();
 
-    Value *cond_end = condition->codegen();
-    if (!cond_end)
-        return nullptr;
-    cond_end = Builder->CreateICmpNE(
-            cond_end, ConstantInt::get(*TheContext, APInt(64, 0)), "loopcond");
-    Builder->CreateCondBr(cond_end, BodyBB, AfterBB);
-    Builder->SetInsertPoint(AfterBB);
+  the_function->insert(the_function->end(), else_bb);
+  builder->SetInsertPoint(else_bb);
 
-    return nullptr;
+  llvm::Value *else_v = falseBranch->codegen();
+
+  builder->CreateBr(merge_bb);
+  else_bb = builder->GetInsertBlock();
+
+  the_function->insert(the_function->end(), merge_bb);
+  builder->SetInsertPoint(merge_bb);
+
+  if (then_v && else_v) {
+    llvm::PHINode *pn =
+        builder->CreatePHI(llvm::Type::getInt64Ty(*the_context), 2, "iftmp");
+
+    pn->addIncoming(then_v, then_bb);
+    pn->addIncoming(else_v, else_bb);
+    return pn;
+  }
+  return nullptr;
 }
 
-Value* IfStatement::codegen() {
-
-    Value *CondV = condition->codegen();
-    if (!CondV)
-        return nullptr;
-
-    CondV = Builder->CreateICmpNE(
-        CondV, ConstantInt::get(*TheContext, APInt(64, 0)), "ifcond");
-
-    // CondV = Builder->CreateFCmpONE(
-    //     CondV, ConstantFP::get(*TheContext, APFloat(0.0)), "ifcond");
-
-    Function *TheFunction = Builder->GetInsertBlock()->getParent();
-
-    BasicBlock *ThenBB = BasicBlock::Create(*TheContext, "then", TheFunction);
-    BasicBlock *ElseBB = BasicBlock::Create(*TheContext, "else");
-    BasicBlock *MergeBB = BasicBlock::Create(*TheContext, "ifcont");
-
-    Builder->CreateCondBr(CondV, ThenBB, ElseBB);
-
-    Builder->SetInsertPoint(ThenBB);
-
-    Value *ThenV = trueBranch->codegen();
-
-    Builder->CreateBr(MergeBB);
-    ThenBB = Builder->GetInsertBlock();
-
-    TheFunction->insert(TheFunction->end(), ElseBB);
-    Builder->SetInsertPoint(ElseBB);
-
-    Value *ElseV = falseBranch->codegen();
-
-    Builder->CreateBr(MergeBB);
-    ElseBB = Builder->GetInsertBlock();
-
-    TheFunction->insert(TheFunction->end(), MergeBB);
-    Builder->SetInsertPoint(MergeBB);
-
-    if (ThenV && ElseV) {
-        // PHINode *PN = Builder->CreatePHI(Type::getDoubleTy(*TheContext), 2, "iftmp");
-        PHINode *PN = Builder->CreatePHI(Type::getInt64Ty(*TheContext), 2, "iftmp");
-
-        PN->addIncoming(ThenV, ThenBB);
-        PN->addIncoming(ElseV, ElseBB);
-        return PN;
-    }
-    return nullptr;
+llvm::Value *VarDeclStatement::codegen() {
+  NamedValues[varName] = builder->CreateAlloca(
+      llvm::Type::getInt64Ty(*the_context), nullptr, varName);
+  return nullptr;
 }
 
-Value* VarDeclStatement::codegen() {
-    NamedValues[varName] = Builder->CreateAlloca(Type::getInt64Ty(*TheContext), nullptr, varName);
-    // NamedValues[varName] = Builder->CreateAlloca(Type::getDoubleTy(*TheContext), nullptr, varName);
-    return nullptr;
+llvm::Value *SeqStatement::codegen() {
+  llvm::Value *first_val = first->codegen();
+
+  llvm::Value *second_val = second->codegen();
+  return second_val;
 }
 
-Value* SeqStatement::codegen() {
-    Value *FirstVal = first->codegen();
+llvm::Value *SkipStatement::codegen() { return nullptr; }
 
-    Value *SecondVal = second->codegen();
-    return SecondVal;
-}
+llvm::Function *Definition::codegen() {
+  std::vector<llvm::Type *> integers(args.size(),
+                                     llvm::Type::getInt64Ty(*the_context));
 
-Value* SkipStatement::codegen() {
-    // return Constant::getNullValue(Type::getDoubleTy(*TheContext));
-    return nullptr;
-}
+  llvm::FunctionType *ft = llvm::FunctionType::get(
+      llvm::Type::getInt64Ty(*the_context), integers, false);
 
-Function* Definition::codegen() {
-    // std::vector<Type *> Doubles(args.size(), Type::getDoubleTy(*TheContext));
-    //
-    // FunctionType *FT =
-    //     FunctionType::get(Type::getDoubleTy(*TheContext), Doubles, false);
+  llvm::Function *f = llvm::Function::Create(
+      ft, llvm::Function::ExternalLinkage, name, the_module.get());
 
-    std::vector<Type *> Integers(args.size(), Type::getInt64Ty(*TheContext));
+  unsigned idx = 0;
+  for (auto &arg : f->args()) arg.setName(args[idx++] + "_ARG");
 
-    FunctionType *FT =
-        FunctionType::get(Type::getInt64Ty(*TheContext), Integers, false);
+  llvm::Function *the_function = the_module->getFunction(name);
 
-    Function *F =
-        Function::Create(FT, Function::ExternalLinkage, name, TheModule.get());
+  if (!the_function) the_function = f;
 
-    unsigned Idx = 0;
-    for (auto &Arg : F->args())
-        Arg.setName(args[Idx++] + "_ARG");
+  if (!the_function) return nullptr;
 
+  llvm::BasicBlock *bb =
+      llvm::BasicBlock::Create(*the_context, "entry", the_function);
+  builder->SetInsertPoint(bb);
 
-    Function *TheFunction = TheModule->getFunction(name);
+  NamedValues.clear();
 
-    if (!TheFunction)
-        TheFunction = F;
+  idx = 0;
+  for (auto &arg : the_function->args()) {
+    NamedValues[args[idx]] = builder->CreateAlloca(
+        llvm::Type::getInt64Ty(*the_context), nullptr, args[idx]);
+    idx++;
+  }
 
-    if (!TheFunction)
-        return nullptr;
+  idx = 0;
+  for (auto &arg : the_function->args()) {
+    builder->CreateStore(&arg, NamedValues[args[idx]]);
+    idx++;
+  }
 
+  if (llvm::Value *ret_val = body->codegen()) {
+    builder->CreateRet(ret_val);
 
-    BasicBlock *BB = BasicBlock::Create(*TheContext, "entry", TheFunction);
-    Builder->SetInsertPoint(BB);
+    llvm::verifyFunction(*the_function);
 
-    NamedValues.clear();
+    the_fpm->run(*the_function, *the_fam);
 
-    Idx = 0;
-    for (auto &Arg : TheFunction->args()) {
-        //&Arg;
-        NamedValues[args[Idx]] = Builder->CreateAlloca(Type::getInt64Ty(*TheContext), nullptr, args[Idx]);
-        Idx++;
-    }
+    return the_function;
+  }
 
-    Idx = 0;
-    for (auto &Arg : TheFunction->args()) {
-        Builder->CreateStore(&Arg, NamedValues[args[Idx]]);
-        Idx++;
-    }
-
-    if (Value *RetVal = body->codegen()) {
-        Builder->CreateRet(RetVal);
-
-        verifyFunction(*TheFunction);
-
-        TheFPM->run(*TheFunction, *TheFAM);
-
-        // std::cerr << "Definition " << name << " compiled\n";
-
-        return TheFunction;
-    }
-
-    TheFunction->eraseFromParent();
-    return nullptr;
+  the_function->eraseFromParent();
+  return nullptr;
 }
 
 void Program::constgen() {
+  if (!the_module) {
+    throw std::runtime_error("failed to load module constgen");
+  }
 
-    if  (!TheModule) {
-        throw std::runtime_error("failed to load module constgen");
-    }
-
-    formatStrConstant = ConstantDataArray::getString(
-        *TheContext,
-        "%ld",
-        true);
-    formatStrType = ArrayType::get(Type::getInt8Ty(*TheContext), 4); // 4 = "%f\n" + '\0'
-    formatStrGlobal = new GlobalVariable(
-        *TheModule,
-        formatStrType,
-        true,                                // isConstant
-        GlobalValue::PrivateLinkage,
-        formatStrConstant,
-        ".str"
-    );
-    // formatStrConstant = ConstantDataArray::getString(
-    //     *TheContext,
-    //     "%lf",
-    //     true);
-    // formatStrType = ArrayType::get(Type::getInt8Ty(*TheContext), 4); // 4 = "%f\n" + '\0'
-    // formatStrGlobal = new GlobalVariable(
-    //     *TheModule,
-    //     formatStrType,
-    //     true,                                // isConstant
-    //     GlobalValue::PrivateLinkage,
-    //     formatStrConstant,
-    //     ".str"
-    // );
-    formatStrGlobal->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
-    formatStrGlobal->setAlignment(MaybeAlign(1));
-
+  formatStrConstant =
+      llvm::ConstantDataArray::getString(*the_context, "%ld", true);
+  formatStrType = llvm::ArrayType::get(llvm::Type::getInt8Ty(*the_context), 4);
+  formatStrGlobal = new llvm::GlobalVariable(*the_module, formatStrType, true,
+                                             llvm::GlobalValue::PrivateLinkage,
+                                             formatStrConstant, ".str");
+  formatStrGlobal->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+  formatStrGlobal->setAlignment(llvm::MaybeAlign(1));
 }
 
+ProgramValue *Program::codegen() {
+  constgen();
 
-Program_Value* Program::codegen() {
-    constgen();
-    // std::cerr << "constgen compiled\n";
-
-    std::vector<Function*> definitions_compiled;
-    for (const auto &definition : definitions) {
-        definitions_compiled.push_back(definition->codegen());
-    }
-    // std::cerr << "entering main\n";
-    auto main_def = std::make_unique<Definition>("main", std::vector<std::string>(), std::move(body));
-    definitions_compiled.push_back(main_def->codegen());
-    return new Program_Value(definitions_compiled);
+  std::vector<llvm::Function *> definitions_compiled;
+  for (const auto &definition : definitions) {
+    definitions_compiled.push_back(definition->codegen());
+  }
+  auto main_def = std::make_unique<Definition>(
+      "main", std::vector<std::string>(), std::move(body));
+  definitions_compiled.push_back(main_def->codegen());
+  return new ProgramValue(definitions_compiled);
 }

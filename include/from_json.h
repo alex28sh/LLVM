@@ -1,8 +1,10 @@
 #pragma once
 
+#include <memory>
 #include <nlohmann/json.hpp>
-#include "expression.h"
-#include "statement.h"
+
+#include "./expression.h"
+#include "./statement.h"
 
 using json = nlohmann::json;
 

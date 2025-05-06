@@ -1,103 +1,104 @@
-#include <fstream>
-
-#include "../include/statement.h"
-#include "../include/from_json.h"
-#include "../include/generate_llvm.h"
 
 #include <argparse/argparse.hpp>
+#include <fstream>
 
-std::unique_ptr<LLVMContext> TheContext;
-std::unique_ptr<Module> TheModule;
-std::unique_ptr<IRBuilder<>> Builder;
+#include "../include/from_json.h"
+#include "../include/generate_llvm.h"
+#include "../include/statement.h"
 
-std::unique_ptr<FunctionPassManager> TheFPM;
-std::unique_ptr<LoopAnalysisManager> TheLAM;
-std::unique_ptr<FunctionAnalysisManager> TheFAM;
-std::unique_ptr<CGSCCAnalysisManager> TheCGAM;
-std::unique_ptr<ModuleAnalysisManager> TheMAM;
-std::unique_ptr<PassInstrumentationCallbacks> ThePIC;
-std::unique_ptr<StandardInstrumentations> TheSI;
+using std::unique_ptr;
 
-void InitializeModule(const std::vector<std::string>& optPasses) {
-    TheContext = std::make_unique<LLVMContext>();
-    TheModule = std::make_unique<Module>("my cool jit", *TheContext);
-    Builder = std::make_unique<IRBuilder<>>(*TheContext);
-    
-    TheFPM = std::make_unique<FunctionPassManager>();
-    TheLAM = std::make_unique<LoopAnalysisManager>();
-    TheFAM = std::make_unique<FunctionAnalysisManager>();
-    TheCGAM = std::make_unique<CGSCCAnalysisManager>();
-    TheMAM = std::make_unique<ModuleAnalysisManager>();
-    ThePIC = std::make_unique<PassInstrumentationCallbacks>();
-    TheSI = std::make_unique<StandardInstrumentations>(*TheContext,
+unique_ptr<llvm::LLVMContext> the_context;
+unique_ptr<llvm::Module> the_module;
+unique_ptr<llvm::IRBuilder<>> builder;
+
+unique_ptr<llvm::FunctionPassManager> the_fpm;
+unique_ptr<llvm::LoopAnalysisManager> the_lam;
+unique_ptr<llvm::FunctionAnalysisManager> the_fam;
+unique_ptr<llvm::CGSCCAnalysisManager> the_cgam;
+unique_ptr<llvm::ModuleAnalysisManager> the_mam;
+unique_ptr<llvm::PassInstrumentationCallbacks> the_pic;
+unique_ptr<llvm::StandardInstrumentations> the_si;
+
+void InitializeModule(const std::vector<std::string> &optPasses) {
+  the_context = std::make_unique<llvm::LLVMContext>();
+  the_module = std::make_unique<llvm::Module>("my cool jit", *the_context);
+  builder = std::make_unique<llvm::IRBuilder<>>(*the_context);
+
+  the_fpm = std::make_unique<llvm::FunctionPassManager>();
+  the_lam = std::make_unique<llvm::LoopAnalysisManager>();
+  the_fam = std::make_unique<llvm::FunctionAnalysisManager>();
+  the_cgam = std::make_unique<llvm::CGSCCAnalysisManager>();
+  the_mam = std::make_unique<llvm::ModuleAnalysisManager>();
+  the_pic = std::make_unique<llvm::PassInstrumentationCallbacks>();
+  the_si =
+      std::make_unique<llvm::StandardInstrumentations>(*the_context,
                                                        /*DebugLogging*/ true);
-    TheSI->registerCallbacks(*ThePIC, TheMAM.get());
+  the_si->registerCallbacks(*the_pic, the_mam.get());
 
-    std::unordered_map<std::string, std::function<void()>> passMap = {
-        {"InstCombine", []() { TheFPM->addPass(InstCombinePass()); }},
-        {"Reassociate", []() { TheFPM->addPass(ReassociatePass()); }},
-        {"GVN",         []() { TheFPM->addPass(GVNPass()); }},
-        {"SimplifyCFG", []() { TheFPM->addPass(SimplifyCFGPass()); }},
-        {"MyConstantProp",      []() { TheFPM->addPass(MyConstantProp()); }},
-        {"MyBranchElim",        []() { TheFPM->addPass(MyBranchElim()); }},
-    };
+  std::unordered_map<std::string, std::function<void()>> pass_map = {
+      {"InstCombine", []() { the_fpm->addPass(llvm::InstCombinePass()); }},
+      {"Reassociate", []() { the_fpm->addPass(llvm::ReassociatePass()); }},
+      {"GVN", []() { the_fpm->addPass(llvm::GVNPass()); }},
+      {"SimplifyCFG", []() { the_fpm->addPass(llvm::SimplifyCFGPass()); }},
+      {"MyConstantProp", []() { the_fpm->addPass(llvm::MyConstantProp()); }},
+      {"MyBranchElim", []() { the_fpm->addPass(llvm::MyBranchElim()); }},
+  };
 
-    // Loop through the provided pass names and add them if found.
-    for (const auto& passName : optPasses) {
-        auto it = passMap.find(passName);
-        if (it != passMap.end()) {
-            it->second();
-        } else {
-            errs() << "Warning: Unknown pass '" << passName << "'\n";
-        }
+  // Loop through the provided pass names and add them if found.
+  for (const auto &pass_name : optPasses) {
+    auto it = pass_map.find(pass_name);
+    if (it != pass_map.end()) {
+      it->second();
+    } else {
+      llvm::errs() << "Warning: Unknown pass '" << pass_name << "'\n";
     }
+  }
 
-    PassBuilder PB;
-    PB.registerModuleAnalyses(*TheMAM);
-    PB.registerFunctionAnalyses(*TheFAM);
-    PB.registerCGSCCAnalyses(*TheCGAM);
-    PB.registerLoopAnalyses(*TheLAM);
-    PB.crossRegisterProxies(*TheLAM, *TheFAM, *TheCGAM, *TheMAM);
+  llvm::PassBuilder pb;
+  pb.registerModuleAnalyses(*the_mam);
+  pb.registerFunctionAnalyses(*the_fam);
+  pb.registerCGSCCAnalyses(*the_cgam);
+  pb.registerLoopAnalyses(*the_lam);
+  pb.crossRegisterProxies(*the_lam, *the_fam, *the_cgam, *the_mam);
 }
 
-int main(int argc, char* argv[]) {
-    argparse::ArgumentParser program("LLVM");
+int main(int argc, char *argv[]) {
+  argparse::ArgumentParser program("LLVM");
 
-    program.add_argument("input")
-        .help("input file");
+  program.add_argument("input").help("input file");
 
-    program.add_argument("output")
-        .help("output file");
+  program.add_argument("output").help("output file");
 
-    program.add_argument("--optimize")
-        .help("List of passes to perform")
-        .nargs(argparse::nargs_pattern::at_least_one);
+  program.add_argument("--optimize")
+      .help("List of passes to perform")
+      .nargs(argparse::nargs_pattern::at_least_one);
 
-    program.parse_args(argc, argv);
+  program.parse_args(argc, argv);
 
-    std::ifstream f(program.get("input"));
-    nlohmann::json data = nlohmann::json::parse(f);
-    auto prg = prg_from_json(data);
+  std::ifstream f(program.get("input"));
+  nlohmann::json data = nlohmann::json::parse(f);
+  auto prg = prg_from_json(data);
 
-    std::vector<std::string> optPasses;
-    if (program.present("--optimize")) {
-        optPasses = program.get<std::vector<std::string>>("--optimize");
-    }
+  std::vector<std::string> opt_passes;
+  if (program.present("--optimize")) {
+    opt_passes = program.get<std::vector<std::string>>("--optimize");
+  }
 
-    InitializeModule(optPasses);
+  InitializeModule(opt_passes);
 
-    if  (!TheModule) {
-        throw std::runtime_error("failed to load module");
-    }
-    auto PrgIR = prg->codegen();
+  if (!the_module) {
+    throw std::runtime_error("failed to load module");
+  }
+  auto prg_ir = prg->codegen();
 
-    std::error_code EC;
-    raw_fd_ostream dest(program.get("output"), EC);
-    if (EC) {
-        errs() << "Could not open file: " << EC.message();
-        return 1;
-    }
-    TheModule->print(dest, nullptr);
+  std::error_code ec;
+  llvm::raw_fd_ostream dest(program.get("output"), ec);
+  if (ec) {
+    llvm::errs() << "Could not open file: " << ec.message();
+    return 1;
+  }
+  the_module->print(dest, nullptr);
 
-    return 0;
+  return 0;
 }

@@ -1,5 +1,9 @@
 #pragma once
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/BasicBlock.h"
@@ -12,79 +16,68 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
 
-#include <memory>
-#include <vector>
+enum class BinOp { Sub, Add, Div, Mul, Mod, Eq, Neq, Gt, Ge, Lt, Le, And, Or };
 
-enum class BinOp {
-    Sub, Add, Div, Mul, Mod,
-    Eq, Neq, Gt, Ge, Lt, Le,
-    And, Or
-};
-
-enum class UnOp {
-    SubUn
-};
+enum class UnOp { SubUn };
 
 class Expression {
-public:
-    virtual ~Expression() = default;
+ public:
+  virtual ~Expression() = default;
 
-    virtual llvm::Value* codegen() = 0;
+  virtual llvm::Value *codegen() = 0;
 };
 
 class BinExpr : public Expression {
+ public:
+  BinExpr(BinOp op, std::unique_ptr<Expression> left,
+          std::unique_ptr<Expression> right);
 
-public:
-    BinExpr(BinOp op, std::unique_ptr<Expression> &left, std::unique_ptr<Expression> &right);
+  llvm::Value *codegen() override;
 
-    llvm::Value* codegen() override;
-
-private:
-    BinOp op;
-    std::unique_ptr<Expression> left;
-    std::unique_ptr<Expression> right;
+ private:
+  BinOp op;
+  std::unique_ptr<Expression> left;
+  std::unique_ptr<Expression> right;
 };
 
 class UnExpr : public Expression {
-public:
-    UnExpr(UnOp op, std::unique_ptr<Expression> &expr);
+ public:
+  UnExpr(UnOp op, std::unique_ptr<Expression> expr);
 
-    llvm::Value* codegen() override;
+  llvm::Value *codegen() override;
 
-private:
-    UnOp op;
-    std::unique_ptr<Expression> expr;
+ private:
+  UnOp op;
+  std::unique_ptr<Expression> expr;
 };
 
 class FunCall : public Expression {
-public:
-    FunCall(std::string name, std::vector<std::unique_ptr<Expression>> args);
+ public:
+  FunCall(std::string name, std::vector<std::unique_ptr<Expression>> args);
 
-    llvm::Value* codegen() override;
+  llvm::Value *codegen() override;
 
-private:
-    std::string name;
-    std::vector<std::unique_ptr<Expression>> args;
+ private:
+  std::string name;
+  std::vector<std::unique_ptr<Expression>> args;
 };
 
 class Variable : public Expression {
-public:
-    explicit Variable(std::string name);
+ public:
+  explicit Variable(std::string name);
 
-    llvm::Value* codegen() override;
+  llvm::Value *codegen() override;
 
-private:
-    std::string name;
+ private:
+  std::string name;
 };
 
 class Const : public Expression {
-public:
-    explicit Const(double value);
+ public:
+  explicit Const(double value);
 
-    llvm::Value* codegen() override;
+  llvm::Value *codegen() override;
 
-private:
-    double value;
+ private:
+  double value;
 };
-
-
