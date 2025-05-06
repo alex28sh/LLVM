@@ -1,0 +1,5 @@
+; RUN: %translator /home/aleksandr/CLionProjects/LLVM/json_examples/prg4 %t.ll --optimize MyConstantProp MyBranchElim
+; RUN: echo "24\n36\n" | lli -opaque-pointers %t.ll > %t.out
+; RUN: FileCheck %s < %t.out
+
+; CHECK: 12

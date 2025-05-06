@@ -22,7 +22,9 @@ PreservedAnalyses MyConstantProp::run(Function &F,
   BasicBlock &entry = F.getEntryBlock();
   SmallVector<AllocaInst *, 16> allocs;
   for (Instruction &i : entry) {
-    if (auto *ai = dyn_cast<AllocaInst>(&i)) allocs.push_back(ai);
+    if (auto *ai = llvm::dyn_cast<AllocaInst>(&i))
+      if (isAllocaPromotable(ai))
+        allocs.push_back(ai);
   }
 
   // If any allocas are found, run mem2reg.
