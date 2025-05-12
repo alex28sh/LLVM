@@ -37,12 +37,12 @@ class FunCallStatement : public Statement {
 
 class AssignmentStatement : public Statement {
  public:
-  AssignmentStatement(std::string varName, std::unique_ptr<Expression> expr);
+  AssignmentStatement(std::unique_ptr<AccessExpr> access_expr, std::unique_ptr<Expression> expr);
 
   llvm::Value *codegen() override;
 
  private:
-  std::string varName;
+  std::unique_ptr<AccessExpr> access_expr;
   std::unique_ptr<Expression> expr;
 };
 
@@ -58,12 +58,12 @@ class WriteStatement : public Statement {
 
 class ReadStatement : public Statement {
  public:
-  explicit ReadStatement(std::string varName);
+  explicit ReadStatement(std::unique_ptr<AccessExpr> access_expr);
 
   llvm::Value *codegen() override;
 
  private:
-  std::string varName;
+  std::unique_ptr<AccessExpr> access_expr;
 };
 
 class WhileStatement : public Statement {
@@ -94,12 +94,13 @@ class IfStatement : public Statement {
 
 class VarDeclStatement : public Statement {
  public:
-  explicit VarDeclStatement(std::string varName);
+  explicit VarDeclStatement(std::string varName, std::unique_ptr<Type> type);
 
   llvm::Value *codegen() override;
 
  private:
   std::string varName;
+  std::unique_ptr<Type> type;
 };
 
 class SeqStatement : public Statement {
@@ -120,14 +121,14 @@ class SkipStatement : public Statement {
 
 class Definition {
  public:
-  Definition(std::string name, std::vector<std::string> args,
+  Definition(std::string name, std::vector<std::pair<std::string, std::unique_ptr<Type>>> args,
              std::unique_ptr<Statement> body);
 
   llvm::Function *codegen();
 
  private:
   std::string name;
-  std::vector<std::string> args;
+  std::vector<std::pair<std::string, std::unique_ptr<Type>>> args;
   std::unique_ptr<Statement> body;
 };
 

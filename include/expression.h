@@ -20,6 +20,29 @@ enum class BinOp { Sub, Add, Div, Mul, Mod, Eq, Neq, Gt, Ge, Lt, Le, And, Or };
 
 enum class UnOp { SubUn };
 
+class Type {
+public:
+  virtual ~Type() = default;
+
+  virtual llvm::Value *gen_alloc(std::string name) = 0;
+};
+
+class IntType : public Type {
+public:
+
+  llvm::Value *gen_alloc(std::string name) override;
+};
+
+class PtrType : public Type {
+public:
+  PtrType(std::unique_ptr<Type> baseType);
+
+  llvm::Value *gen_alloc(std::string name) override;
+
+private:
+  std::unique_ptr<Type> baseType;
+};
+
 class Expression {
  public:
   virtual ~Expression() = default;
@@ -62,14 +85,33 @@ class FunCall : public Expression {
   std::vector<std::unique_ptr<Expression>> args;
 };
 
-class Variable : public Expression {
+
+class AccessExpr : public Expression {
+};
+
+class Variable : public AccessExpr {
  public:
-  explicit Variable(std::string name);
+  explicit Variable(std::string name, bool load, bool is_ptr);
 
   llvm::Value *codegen() override;
 
  private:
   std::string name;
+  bool load;
+  bool is_ptr;
+};
+
+class ArrayIdx : public AccessExpr {
+ public:
+  ArrayIdx(std::unique_ptr<AccessExpr> access_expr, std::unique_ptr<Expression> index, bool load, bool is_ptr);
+
+  llvm::Value *codegen() override;
+
+ private:
+  std::unique_ptr<AccessExpr> access_expr;
+  std::unique_ptr<Expression> index;
+  bool load;
+  bool is_ptr;
 };
 
 class Const : public Expression {
@@ -80,4 +122,15 @@ class Const : public Expression {
 
  private:
   double value;
+};
+
+class NewArr : public Expression {
+ public:
+  explicit NewArr(std::unique_ptr<Type> type, std::unique_ptr<Expression> size);
+
+  llvm::Value *codegen() override;
+
+ private:
+  std::unique_ptr<Type> type;
+  std::unique_ptr<Expression> size;
 };

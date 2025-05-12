@@ -6,6 +6,22 @@
 
 #include "../include/expression.h"
 
+
+std::unique_ptr<AccessExpr> access_expr_from_json(json j, bool load, bool is_ptr) {
+  std::string type = j["tag"].get<std::string>();
+  if (type == "Variable") {
+    std::string name = j["contents"].get<std::string>();
+    return std::make_unique<Variable>(name, load, is_ptr);
+  }
+  if (type == "ArrayIdx") {
+    auto access_expr = access_expr_from_json(j["contents"][0], true, true);
+    auto index = expr_from_json(j["contents"][1]);
+    return std::make_unique<ArrayIdx>(std::move(access_expr), std::move(index), load, is_ptr);
+  }
+
+  throw std::runtime_error("Could not create access expression");
+}
+
 BinOp binop_from_json(json j) {
   static const std::unordered_map<std::string, BinOp> bin_ops = {
       {"Sub", BinOp::Sub}, {"Add", BinOp::Add}, {"Div", BinOp::Div},
@@ -29,6 +45,18 @@ UnOp unop_from_json(json j) {
   }
 }
 
+std::unique_ptr<Type> get_type_from_json(json j) {
+  std::string type = j["tag"].get<std::string>();
+  if (type == "TInt") {
+    return std::make_unique<IntType>();
+  }
+  if (type == "TPtr") {
+    auto base = get_type_from_json(j["contents"]);
+    return std::make_unique<PtrType>(std::move(base));
+  }
+  throw std::runtime_error("Could not create type");
+}
+
 std::unique_ptr<Expression> expr_from_json(json j) {
   std::string type = j["tag"].get<std::string>();
   auto contents = j["contents"];
@@ -50,13 +78,18 @@ std::unique_ptr<Expression> expr_from_json(json j) {
                    expr_from_json);
     return std::make_unique<FunCall>(name, std::move(args));
   }
-  if (type == "Variable") {
-    std::string var = contents.get<std::string>();
-    return std::make_unique<Variable>(var);
+  if (type == "Access") {
+    // std::vector<json> args_json = contents[0].get<std::vector<json>>();
+    return std::move(access_expr_from_json(contents, true, false));
   }
   if (type == "Const") {
     double x = contents.get<double>();
     return std::make_unique<Const>(x);
+  }
+  if (type == "NewArr") {
+    auto type_arr = get_type_from_json(contents[0]);
+    auto size = expr_from_json(contents[1]);
+    return std::make_unique<NewArr>(std::move(type_arr), std::move(size));
   }
   throw std::runtime_error("Could not create expression");
 }
@@ -77,17 +110,15 @@ std::unique_ptr<Statement> stmt_from_json(json j) {
     return std::make_unique<FunCallStatement>(name, std::move(args));
   }
   if (type == "Assignment") {
-    std::string name = contents[0].get<std::string>();
     auto e = expr_from_json(contents[1]);
-    return std::make_unique<AssignmentStatement>(name, std::move(e));
+    return std::make_unique<AssignmentStatement>(std::move(access_expr_from_json(contents[0], false, false)), std::move(e));
   }
   if (type == "Write") {
     auto e = expr_from_json(contents);
     return std::make_unique<WriteStatement>(std::move(e));
   }
   if (type == "Read") {
-    std::string name = contents.get<std::string>();
-    return std::make_unique<ReadStatement>(name);
+    return std::make_unique<ReadStatement>(std::move(access_expr_from_json(contents, false, false)));
   }
   if (type == "While") {
     auto e = expr_from_json(contents[0]);
@@ -102,8 +133,9 @@ std::unique_ptr<Statement> stmt_from_json(json j) {
                                          std::move(r));
   }
   if (type == "VarDecl") {
-    std::string name = contents.get<std::string>();
-    return std::make_unique<VarDeclStatement>(name);
+    auto type_json = get_type_from_json(contents[0]);
+    std::string name = contents[1];
+    return std::make_unique<VarDeclStatement>(name, std::move(type_json));
   }
   if (type == "SeqStmt") {
     auto l = stmt_from_json(contents[0]);
@@ -116,11 +148,20 @@ std::unique_ptr<Statement> stmt_from_json(json j) {
   throw std::runtime_error("Could not create statement");
 }
 
+std::pair<std::string, std::unique_ptr<Type>> arg_from_json(json j) {
+  auto name = j[1].get<std::string>();
+  auto type_json = get_type_from_json(j[0]);
+  return std::make_pair(name, std::move(type_json));
+}
+
 std::unique_ptr<Definition> def_from_json(json j) {
   std::string name = j[0].get<std::string>();
-  std::vector<std::string> args = j[1].get<std::vector<std::string>>();
+  std::vector<json> args_json = j[1].get<std::vector<json>>();
+  std::vector<std::pair<std::string, std::unique_ptr<Type>>> args(args_json.size());
+  std::transform(args_json.begin(), args_json.end(), args.begin(), arg_from_json);
+
   std::unique_ptr<Statement> stmt = stmt_from_json(j[2]);
-  return std::make_unique<Definition>(name, args, std::move(stmt));
+  return std::make_unique<Definition>(name, std::move(args), std::move(stmt));
 }
 
 std::unique_ptr<Program> prg_from_json(json j) {

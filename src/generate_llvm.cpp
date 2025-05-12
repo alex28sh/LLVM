@@ -5,6 +5,8 @@
 #include "../include/expression.h"
 #include "../include/statement.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Type.h"
 
 std::map<std::string, llvm::Value *> NamedValues;
 
@@ -17,6 +19,13 @@ llvm::Value *BinExpr::codegen() {
   llvm::Value *r = right->codegen();
   if (!l || !r) return nullptr;
 
+  std::cerr << "BinExpr codegen\n";
+  l->getType()->print(llvm::errs());
+  r->getType()->print(llvm::errs());
+  llvm::errs().flush();
+  std::cerr << "\n";
+  std::cerr.flush();
+  assert(l->getType() == r->getType());
   switch (op) {
     case BinOp::Add:
       return builder->CreateAdd(l, r, "addtmp");
@@ -26,6 +35,8 @@ llvm::Value *BinExpr::codegen() {
       return builder->CreateMul(l, r, "multmp");
     case BinOp::Lt:
       l = builder->CreateICmpSLT(l, r, "cmptmp");
+      return builder->CreateZExt(l, llvm::Type::getInt64Ty(*the_context),
+                               "booltmp");
     case BinOp::Gt:
       l = builder->CreateICmpSGT(l, r, "cmptmp");
       return builder->CreateZExt(l, llvm::Type::getInt64Ty(*the_context),
@@ -87,14 +98,81 @@ llvm::Value *FunCall::codegen() {
 }
 
 llvm::Value *Variable::codegen() {
-  return builder->CreateLoad(llvm::Type::getInt64Ty(*the_context),
-                             NamedValues[name], name + "_loaded");
+  NamedValues[name]->getType()->print(llvm::errs());
+  llvm::errs().flush();
+  if (!load) {
+    return NamedValues[name];
+  }
+  llvm::Type* ptr_type = llvm::PointerType::get(*the_context, 0);
+  llvm::Type* int_type = llvm::Type::getInt64Ty(*the_context);
+  return builder->CreateLoad(is_ptr ? ptr_type : int_type, NamedValues[name], name + "_loaded");
+}
+
+llvm::Value *ArrayIdx::codegen() {
+  llvm::Value *array = access_expr->codegen();
+  llvm::Value *index_value = index->codegen();
+
+  if (!array || !index_value) return nullptr;
+
+  llvm::Value *idx = builder->CreateGEP(
+    llvm::Type::getInt64Ty(*the_context), array, index_value, "arrayidx");
+  if (!load) {
+    return idx;
+  }
+  llvm::Type* ptr_type = llvm::PointerType::get(*the_context, 0);
+  llvm::Type* int_type = llvm::Type::getInt64Ty(*the_context);
+  return builder->CreateLoad(is_ptr ? ptr_type : int_type, idx, "arrayidx_loaded");
 }
 
 llvm::Value *Const::codegen() {
   return llvm::ConstantInt::get(*the_context,
                                 llvm::APInt(64, static_cast<uint64_t>(value)));
 }
+
+llvm::Value *IntType::gen_alloc(std::string name) {
+  std::cerr << "Allocating int\n";
+  std::cerr << name << "\n";
+  std::cerr.flush();
+  return builder->CreateAlloca(llvm::Type::getInt64Ty(*the_context), nullptr, name);
+}
+
+llvm::Value *PtrType::gen_alloc(std::string name) {
+  std::cerr << "Allocating PtrType\n";
+  std::cerr << name << "\n";
+  std::cerr.flush();
+  // llvm::Type *i64_type = llvm::Type::getInt64Ty(*the_context);
+  llvm::PointerType *pointer_type = llvm::PointerType::get(*the_context, 0);
+  assert(pointer_type->isPointerTy());
+  return builder->CreateAlloca(pointer_type, nullptr, name);
+}
+
+llvm::Value *NewArr::codegen() {
+
+  llvm::Value *size_val = size->codegen();
+
+  // Declare or get malloc function (returns i8* and takes one i64 argument)
+  llvm::FunctionType *malloc_type = llvm::FunctionType::get(
+    llvm::PointerType::get(llvm::Type::getInt8Ty(*the_context), 0),
+    {llvm::Type::getInt64Ty(*the_context)},
+    false);
+  auto *malloc_func = llvm::cast<llvm::Function>(
+the_module->getOrInsertFunction("malloc", malloc_type).getCallee());
+
+  // Compute allocation size: element count * size of int (assume 4 bytes for int)
+  llvm::Value *element_size = llvm::ConstantInt::get(llvm::Type::getInt64Ty(*the_context), 8);
+  llvm::Value *alloc_size = builder->CreateMul(size_val, element_size, "allocSize");
+
+  // Call malloc to allocate memory
+  llvm::Value *raw_ptr = builder->CreateCall(malloc_func, alloc_size, "raw_ptr");
+
+  // Convert the i8* result of malloc to int* (i32*)
+  llvm::Value *int_ptr = builder->CreateBitCast(
+    raw_ptr, llvm::PointerType::get(llvm::Type::getInt64Ty(*the_context), 0), "int_ptr");
+
+  // 'intPtr' now represents the result of new int[n]
+  return int_ptr;
+}
+
 
 llvm::Value *ReturnStatement::codegen() { return expr->codegen(); }
 
@@ -117,8 +195,7 @@ llvm::Value *FunCallStatement::codegen() {
 }
 
 llvm::Value *AssignmentStatement::codegen() {
-  NamedValues[varName]->getType()->print(llvm::errs());
-  builder->CreateStore(expr->codegen(), NamedValues[varName]);
+  builder->CreateStore(expr->codegen(), access_expr->codegen());
   return nullptr;
 }
 
@@ -140,7 +217,7 @@ llvm::Value *WriteStatement::codegen() {
 }
 
 llvm::Value *ReadStatement::codegen() {
-  llvm::Value *var = NamedValues[varName];
+  llvm::Value *var = access_expr->codegen();
 
   if (!var) return nullptr;
 
@@ -243,8 +320,10 @@ llvm::Value *IfStatement::codegen() {
 }
 
 llvm::Value *VarDeclStatement::codegen() {
-  NamedValues[varName] = builder->CreateAlloca(
-      llvm::Type::getInt64Ty(*the_context), nullptr, varName);
+  // type->gen_alloc(varName)->getType()->print(llvm::errs());
+  NamedValues[varName] = type->gen_alloc(varName);
+  // NamedValues[varName] = builder->CreateAlloca(
+  //     llvm::Type::getInt64Ty(*the_context), nullptr, varName);
   return nullptr;
 }
 
@@ -268,7 +347,7 @@ llvm::Function *Definition::codegen() {
       ft, llvm::Function::ExternalLinkage, name, the_module.get());
 
   unsigned idx = 0;
-  for (auto &arg : f->args()) arg.setName(args[idx++] + "_ARG");
+  for (auto &arg : f->args()) arg.setName(args[idx++].first + "_ARG");
 
   llvm::Function *the_function = the_module->getFunction(name);
 
@@ -284,14 +363,15 @@ llvm::Function *Definition::codegen() {
 
   idx = 0;
   for (auto &arg : the_function->args()) {
-    NamedValues[args[idx]] = builder->CreateAlloca(
-        llvm::Type::getInt64Ty(*the_context), nullptr, args[idx]);
+    NamedValues[args[idx].first] = args[idx].second->gen_alloc(args[idx].first);
+    // NamedValues[args[idx].first] = builder->CreateAlloca(
+    //     llvm::Type::getInt64Ty(*the_context), nullptr, args[idx]);
     idx++;
   }
 
   idx = 0;
   for (auto &arg : the_function->args()) {
-    builder->CreateStore(&arg, NamedValues[args[idx]]);
+    builder->CreateStore(&arg, NamedValues[args[idx].first]);
     idx++;
   }
 
@@ -328,11 +408,12 @@ ProgramValue *Program::codegen() {
   constgen();
 
   std::vector<llvm::Function *> definitions_compiled;
+  definitions_compiled.reserve(definitions.size() + 1);
   for (const auto &definition : definitions) {
     definitions_compiled.push_back(definition->codegen());
   }
   auto main_def = std::make_unique<Definition>(
-      "main", std::vector<std::string>(), std::move(body));
+      "main", std::vector<std::pair<std::string, std::unique_ptr<Type>>>(), std::move(body));
   definitions_compiled.push_back(main_def->codegen());
   return new ProgramValue(definitions_compiled);
 }
