@@ -1,4 +1,4 @@
-def fact(a, b) {
+def fact(int a, int b) {
     while (a != 0 && b != 0) {
         if (a > b) {
             a := a % b;
@@ -10,8 +10,8 @@ def fact(a, b) {
 }
 
 def main() {
-    var a;
-    var b;
+    int a;
+    int b;
     read a;
     read b;
     write fact(a, b);

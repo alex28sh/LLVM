@@ -1,0 +1,28 @@
+def sum(int* a, int n) {
+    int s;
+    s := 0;
+    int i;
+    i := 0;
+    while (i < n) {
+        s := s + a[i];
+        i := i + 1;
+    }
+    return s;
+}
+
+def main() {
+    int n;
+    read n;
+    int* a;
+    a := new int[n];
+    int i;
+    i := 0;
+    while (i < n) {
+        int x;
+        read x;
+        a[i] := x;
+        i := i + 1;
+    }
+    write sum(a, n);
+    return 0;
+}

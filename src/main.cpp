@@ -20,7 +20,7 @@ unique_ptr<llvm::ModuleAnalysisManager> the_mam;
 unique_ptr<llvm::PassInstrumentationCallbacks> the_pic;
 unique_ptr<llvm::StandardInstrumentations> the_si;
 
-void InitializeModule(const std::vector<std::string> &optPasses) {
+void initialize_module(const std::vector<std::string> &opt_passes) {
   the_context = std::make_unique<llvm::LLVMContext>();
   the_module = std::make_unique<llvm::Module>("my cool jit", *the_context);
   builder = std::make_unique<llvm::IRBuilder<>>(*the_context);
@@ -46,9 +46,8 @@ void InitializeModule(const std::vector<std::string> &optPasses) {
   };
 
   // Loop through the provided pass names and add them if found.
-  for (const auto &pass_name : optPasses) {
-    auto it = pass_map.find(pass_name);
-    if (it != pass_map.end()) {
+  for (const auto &pass_name : opt_passes) {
+    if (auto it = pass_map.find(pass_name); it != pass_map.end()) {
       it->second();
     } else {
       llvm::errs() << "Warning: Unknown pass '" << pass_name << "'\n";
@@ -85,7 +84,7 @@ int main(int argc, char *argv[]) {
     opt_passes = program.get<std::vector<std::string>>("--optimize");
   }
 
-  InitializeModule(opt_passes);
+  initialize_module(opt_passes);
 
   if (!the_module) {
     throw std::runtime_error("failed to load module");

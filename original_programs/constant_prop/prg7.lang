@@ -1,0 +1,8 @@
+def main() {
+    int x;
+    int y;
+    x := 5;
+    y := x + 3;
+    write y;
+    return 0;
+} 

@@ -1,10 +1,10 @@
-def fib(n) {
-    var a;
-    var b;
+def fib(int n) {
+    int a;
+    int b;
     a := 0;
     b := 1;
     while (n >= 1) {
-        var c;
+        int c;
         c := a + b;
         a := b;
         b := c;
@@ -14,9 +14,9 @@ def fib(n) {
 }
 
 def main() {
-    var n;
+    int n;
     read n;
-    var sum;
+    int sum;
     sum := fib(n);
     if (n >= 1) {
         sum := sum + fib(n - 1);

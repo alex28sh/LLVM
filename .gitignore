@@ -4,3 +4,5 @@ test_gen
 just_to_compare
 cmake-build-debug
 CMakeFiles
+llvm_compiled
+build

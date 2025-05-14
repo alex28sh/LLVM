@@ -1,5 +1,5 @@
-def countSetBits(n) {
-    var count;
+def countSetBits(int n) {
+    int count;
     count := 0;
     while (n > 0) {
         n := n && (n - 1);
@@ -9,9 +9,9 @@ def countSetBits(n) {
 }
 
 def main() {
-    var a;
+    int a;
     read a;
-    var res;
+    int res;
     res := countSetBits(a);
     write res;
     return 0;

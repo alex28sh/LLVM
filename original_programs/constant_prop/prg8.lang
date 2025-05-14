@@ -1,0 +1,9 @@
+def main() {
+    int x;
+    x := 10;
+    if 0 {
+        write x;
+    }
+    write 1;
+    return 0;
+} 

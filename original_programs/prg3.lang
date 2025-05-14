@@ -1,4 +1,4 @@
-def fib(n) {
+def fib(int n) {
     if (n == 0) {
         return 0;
     } else {
@@ -11,9 +11,9 @@ def fib(n) {
 }
 
 def main() {
-    var n;
+    int n;
     read n;
-    var sum;
+    int sum;
     sum := fib(n);
     if (n >= 1) {
         sum := sum + fib(n - 1);

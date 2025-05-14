@@ -8,11 +8,11 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Type.h"
 
-std::map<std::string, llvm::Value *> NamedValues;
+std::map<std::string, llvm::Value *> named_values;
 
-llvm::Constant *formatStrConstant;
-llvm::ArrayType *formatStrType;
-llvm::GlobalVariable *formatStrGlobal;
+llvm::Constant *format_str_constant;
+llvm::ArrayType *format_str_type;
+llvm::GlobalVariable *format_str_global;
 
 llvm::Value *BinExpr::codegen() {
   llvm::Value *l = left->codegen();
@@ -98,14 +98,14 @@ llvm::Value *FunCall::codegen() {
 }
 
 llvm::Value *Variable::codegen() {
-  NamedValues[name]->getType()->print(llvm::errs());
+  named_values[name]->getType()->print(llvm::errs());
   llvm::errs().flush();
   if (!load) {
-    return NamedValues[name];
+    return named_values[name];
   }
   llvm::Type* ptr_type = llvm::PointerType::get(*the_context, 0);
   llvm::Type* int_type = llvm::Type::getInt64Ty(*the_context);
-  return builder->CreateLoad(is_ptr ? ptr_type : int_type, NamedValues[name], name + "_loaded");
+  return builder->CreateLoad(is_ptr ? ptr_type : int_type, named_values[name], name + "_loaded");
 }
 
 llvm::Value *ArrayIdx::codegen() {
@@ -203,7 +203,7 @@ llvm::Value *WriteStatement::codegen() {
   llvm::Value *expr_val = expr->codegen();
   if (!expr_val) return nullptr;
 
-  std::vector<llvm::Type *> arg_types = {formatStrGlobal->getType()};
+  std::vector<llvm::Type *> arg_types = {format_str_global->getType()};
 
   llvm::FunctionType *print_type =
       llvm::FunctionType::get(builder->getInt64Ty(), arg_types, true);
@@ -212,7 +212,7 @@ llvm::Value *WriteStatement::codegen() {
 
   if (!print_func) throw std::runtime_error("Unknown function 'printf'");
 
-  builder->CreateCall(print_func, {formatStrGlobal, expr_val}, "printfcall");
+  builder->CreateCall(print_func, {format_str_global, expr_val}, "printfcall");
   return nullptr;
 }
 
@@ -223,7 +223,7 @@ llvm::Value *ReadStatement::codegen() {
 
   llvm::Value *var_ptr = var;
 
-  std::vector<llvm::Type *> arg_types = {formatStrGlobal->getType()};
+  std::vector<llvm::Type *> arg_types = {format_str_global->getType()};
 
   llvm::FunctionType *scanf_type =
       llvm::FunctionType::get(builder->getInt64Ty(), arg_types, true);
@@ -231,7 +231,7 @@ llvm::Value *ReadStatement::codegen() {
       the_module->getOrInsertFunction("__isoc99_scanf", scanf_type);
   if (!scanf_func) throw std::runtime_error("Unknown function '__isoc99_scanf'");
 
-  llvm::ArrayRef<llvm::Value *> args = {formatStrGlobal, var_ptr};
+  llvm::ArrayRef<llvm::Value *> args = {format_str_global, var_ptr};
 
   builder->CreateCall(scanf_func, args, "scanfcall");
   return nullptr;
@@ -321,7 +321,7 @@ llvm::Value *IfStatement::codegen() {
 
 llvm::Value *VarDeclStatement::codegen() {
   // type->gen_alloc(varName)->getType()->print(llvm::errs());
-  NamedValues[varName] = type->gen_alloc(varName);
+  named_values[varName] = type->gen_alloc(varName);
   // NamedValues[varName] = builder->CreateAlloca(
   //     llvm::Type::getInt64Ty(*the_context), nullptr, varName);
   return nullptr;
@@ -359,11 +359,11 @@ llvm::Function *Definition::codegen() {
       llvm::BasicBlock::Create(*the_context, "entry", the_function);
   builder->SetInsertPoint(bb);
 
-  NamedValues.clear();
+  named_values.clear();
 
   idx = 0;
   for (auto &arg : the_function->args()) {
-    NamedValues[args[idx].first] = args[idx].second->gen_alloc(args[idx].first);
+    named_values[args[idx].first] = args[idx].second->gen_alloc(args[idx].first);
     // NamedValues[args[idx].first] = builder->CreateAlloca(
     //     llvm::Type::getInt64Ty(*the_context), nullptr, args[idx]);
     idx++;
@@ -371,7 +371,7 @@ llvm::Function *Definition::codegen() {
 
   idx = 0;
   for (auto &arg : the_function->args()) {
-    builder->CreateStore(&arg, NamedValues[args[idx].first]);
+    builder->CreateStore(&arg, named_values[args[idx].first]);
     idx++;
   }
 
@@ -394,14 +394,14 @@ void Program::constgen() {
     throw std::runtime_error("failed to load module constgen");
   }
 
-  formatStrConstant =
+  format_str_constant =
       llvm::ConstantDataArray::getString(*the_context, "%ld", true);
-  formatStrType = llvm::ArrayType::get(llvm::Type::getInt8Ty(*the_context), 4);
-  formatStrGlobal = new llvm::GlobalVariable(*the_module, formatStrType, true,
+  format_str_type = llvm::ArrayType::get(llvm::Type::getInt8Ty(*the_context), 4);
+  format_str_global = new llvm::GlobalVariable(*the_module, format_str_type, true,
                                              llvm::GlobalValue::PrivateLinkage,
-                                             formatStrConstant, ".str");
-  formatStrGlobal->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-  formatStrGlobal->setAlignment(llvm::MaybeAlign(1));
+                                             format_str_constant, ".str");
+  format_str_global->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+  format_str_global->setAlignment(llvm::MaybeAlign(1));
 }
 
 ProgramValue *Program::codegen() {

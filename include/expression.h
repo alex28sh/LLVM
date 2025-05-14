@@ -35,7 +35,7 @@ public:
 
 class PtrType : public Type {
 public:
-  PtrType(std::unique_ptr<Type> baseType);
+  explicit PtrType(std::unique_ptr<Type> baseType);
 
   llvm::Value *gen_alloc(std::string name) override;
 

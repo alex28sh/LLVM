@@ -1,5 +1,0 @@
-; RUN: %translator /home/aleksandr/CLionProjects/LLVM/json_examples/prg4 %t.ll
-; RUN: FileCheck %s < %t.ll
-
-; CHECK: define i64 @gcd(
-; CHECK: define i64 @main(

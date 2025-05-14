@@ -1,0 +1,10 @@
+def main() {
+    int x;
+    x := 7;
+    if x == 7 {
+        write 100;
+    } else {
+        write 200;
+    }
+    return 0;
+} 
