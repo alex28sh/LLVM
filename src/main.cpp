@@ -37,12 +37,13 @@ void initialize_module(const std::vector<std::string> &opt_passes) {
   the_si->registerCallbacks(*the_pic, the_mam.get());
 
   std::unordered_map<std::string, std::function<void()>> pass_map = {
-      {"InstCombine", []() { the_fpm->addPass(llvm::InstCombinePass()); }},
-      {"Reassociate", []() { the_fpm->addPass(llvm::ReassociatePass()); }},
-      {"GVN", []() { the_fpm->addPass(llvm::GVNPass()); }},
-      {"SimplifyCFG", []() { the_fpm->addPass(llvm::SimplifyCFGPass()); }},
-      {"MyConstantProp", []() { the_fpm->addPass(llvm::MyConstantProp()); }},
-      {"MyBranchElim", []() { the_fpm->addPass(llvm::MyBranchElim()); }},
+  {"InstCombine", []() { the_fpm->addPass(llvm::InstCombinePass()); }},
+  {"Reassociate", []() { the_fpm->addPass(llvm::ReassociatePass()); }},
+  {"GVN", []() { the_fpm->addPass(llvm::GVNPass()); }},
+  {"SimplifyCFG", []() { the_fpm->addPass(llvm::SimplifyCFGPass()); }},
+  {"MyConstantProp", []() { the_fpm->addPass(llvm::MyConstantProp()); }},
+  {"MyBranchElim", []() { the_fpm->addPass(llvm::MyBranchElim()); }},
+  {"MyCSE", []() { the_fpm->addPass(llvm::MyCSE()); }},
   };
 
   // Loop through the provided pass names and add them if found.
